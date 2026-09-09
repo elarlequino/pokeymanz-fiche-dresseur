@@ -601,6 +601,7 @@
 
   var saveTimer = null;
   function scheduleSave(){
+    state.team.forEach(ensureMonSlots);
     lsSave();
     setSavePill("enregistrement…", false);
     clearTimeout(saveTimer);
@@ -674,6 +675,7 @@
 
   function renderAll(){
     document.getElementById("dresseur-nom").value = state.dresseur.joueur || "";
+    state.team.forEach(ensureMonSlots);
     renderRoster(); renderSheet();
   }
 
@@ -683,7 +685,7 @@
     state.team.forEach(function(m){
       var t0 = TYPE_BY_KEY[m.types[0]] || TYPE_BY_KEY.normal;
       var spriteSrc = m.dexId ? SPRITES_STATIC[m.dexId] : null;
-      var masteryDots = [0,1].map(function(i){ return '<i class="' + (m.masteryAcquired[i] ? "on" : "") + '"></i>'; }).join("");
+      var masteryDots = m.masteryAcquired.map(function(on){ return '<i class="' + (on ? "on" : "") + '"></i>'; }).join("");
       var card = document.createElement("button");
       card.type = "button";
       card.className = "mon-card" + (m.id === selectedId ? " active" : "");
@@ -804,12 +806,25 @@
     "</div>";
   }
 
+  function normalizeEdgeName(s){ return String(s || "").trim().toLowerCase(); }
   function edgeCardHtml(e, i){
     var cats = [{k:"combat",l:"Combat"},{k:"utilitaire",l:"Utilitaire"},{k:"social",l:"Social"}];
+    var isICY = normalizeEdgeName(e.nom) === "i choose you";
+    var linkHtml = "";
+    if (isICY){
+      linkHtml = '<div class="field" style="grid-column:1/-1;">' +
+        '<label>Pokémon lié (+2 emplacements d\'Attaque, jusqu\'à 4 Maîtrises)</label>' +
+        '<select data-edge-linkmon="' + i + '">' +
+          '<option value="">— Choisir un Pokémon —</option>' +
+          state.team.map(function(m){ return '<option value="' + m.id + '"' + (e.linkedMonId === m.id ? " selected" : "") + '>' + escapeHtml(m.surnom || m.espece || "Pokémon") + "</option>"; }).join("") +
+        "</select>" +
+      "</div>";
+    }
     return '<div class="entry-card" data-edge="' + i + '">' +
       '<div class="field"><label>Nom</label><input data-edge-field="nom" value="' + escapeHtml(e.nom) + '" placeholder="ex. Beast Bond"></div>' +
       '<div class="field"><label>Catégorie</label><select data-edge-field="categorie">' + cats.map(function(c){ return '<option value="' + c.k + '"' + (c.k === e.categorie ? " selected" : "") + ">" + c.l + "</option>"; }).join("") + "</select></div>" +
       '<div class="field"><label>Effet</label><textarea data-edge-field="description" rows="2" placeholder="Effet de l\'Edge">' + escapeHtml(e.description) + "</textarea></div>" +
+      linkHtml +
       '<button type="button" class="btn-danger" data-remove-edge="' + i + '">Retirer</button>' +
     "</div>";
   }
@@ -824,14 +839,31 @@
   }
 
   /* ---------- Pokémon card ---------- */
+  function getIChooseYouMonId(){
+    var edges = state.dresseur.edges || [];
+    for (var i = 0; i < edges.length; i++){
+      if (normalizeEdgeName(edges[i].nom) === "i choose you" && edges[i].linkedMonId) return edges[i].linkedMonId;
+    }
+    return null;
+  }
+  function moveSlotsFor(mon){ return getIChooseYouMonId() === mon.id ? 6 : 4; }
+  function masterySlotsFor(mon){ return getIChooseYouMonId() === mon.id ? 4 : 2; }
+  function ensureMonSlots(mon){
+    var moveSlots = moveSlotsFor(mon);
+    while (mon.moves.length < moveSlots) mon.moves.push(emptyMove());
+    var masterySlots = masterySlotsFor(mon);
+    while (mon.masteryAcquired.length < masterySlots){ mon.masteryAcquired.push(false); mon.masteryUsed.push(false); }
+  }
   function renderMonCard(){
     var m = getSelected();
     if (!m){
       return '<div class="empty-state"><p>Aucun Pokémon sélectionné.</p><button class="btn-accent" id="empty-add">+ Nouveau Pokémon</button></div>';
     }
+    ensureMonSlots(m);
+    var isICYLinked = getIChooseYouMonId() === m.id;
     var spriteSrc = m.dexId ? SPRITES_STATIC[m.dexId] : null;
     var html = "";
-    html += '<div class="block-title">' + (spriteSrc ? '' : '🐾 ') + "Pokémon — " + escapeHtml(m.surnom || "Sans nom") + "</div>";
+    html += '<div class="block-title">' + (spriteSrc ? '' : '🐾 ') + "Pokémon — " + escapeHtml(m.surnom || "Sans nom") + (isICYLinked ? ' <span class="save-pill" style="background:var(--accent-soft);color:var(--accent-strong);border-color:var(--accent);vertical-align:middle;">💞 I Choose You</span>' : "") + "</div>";
     html += '<div class="block-sub">Types, Capacité Spéciale, Capacités (Moves), Maîtrise, Robustesse.</div>';
 
     html += '<div class="sheet-top">' +
@@ -873,7 +905,7 @@
     }).join("");
 
     html += '<div class="section-title">Maîtrise</div>';
-    html += '<div class="mastery-row">' + [0,1].map(function(i){
+    html += '<div class="mastery-row">' + m.masteryAcquired.map(function(_, i){
       return '<div class="mastery-pip">' +
         '<span class="dot' + (m.masteryAcquired[i] ? " on" : "") + '" data-mastery-idx="' + i + '" title="Niveau de Maîtrise ' + (i+1) + '"></span>' +
         'Niveau ' + (i+1) +
@@ -992,7 +1024,14 @@
       if (!rm) return;
       var i = parseInt(rm.getAttribute("data-remove-edge"), 10);
       d.edges.splice(i, 1);
-      dismissSample(); scheduleSave(); renderSheet();
+      dismissSample(); scheduleSave(); renderAll();
+    });
+    if (edgesList) edgesList.addEventListener("change", function(e){
+      var sel = e.target.closest("[data-edge-linkmon]");
+      if (!sel) return;
+      var i = parseInt(sel.getAttribute("data-edge-linkmon"), 10);
+      d.edges[i].linkedMonId = sel.value || null;
+      dismissSample(); scheduleSave(); renderAll();
     });
 
     var addHindranceRefBtn = document.getElementById("add-hindrance-ref");
