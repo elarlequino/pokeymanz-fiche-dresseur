@@ -59,15 +59,30 @@
   .trainer-box input{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); color:#fff; width:180px; }
   .trainer-box input::placeholder{ color:rgba(255,255,255,.7); }
   .save-pill{ font-size:11px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3); padding:4px 9px; border-radius:999px; white-space:nowrap; }
+  #delete-cookies{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3); color:#fff; }
+  #delete-cookies:hover{ background:rgba(255,255,255,.28); }
 
-  .layout{ max-width:1180px; margin:0 auto; padding:22px; display:grid; grid-template-columns: 1fr 300px; gap:20px; grid-template-areas:"sheet roster"; align-items:start; }
-  @media (max-width: 860px){ .layout{ grid-template-columns:1fr; grid-template-areas:"roster" "sheet"; } }
+  .layout{ max-width:1180px; margin:0 auto; padding:22px; display:grid; grid-template-columns: 1.1fr 1fr; gap:20px; grid-template-areas:"sheet mon"; align-items:start; }
+  @media (max-width: 860px){ .layout{ grid-template-columns:1fr; grid-template-areas:"mon" "sheet"; } }
   .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
 
-  #roster{ grid-area:roster; padding:16px; position:sticky; top:22px; }
-  #roster h2{ font-size:15px; margin:0 0 3px; }
+  /* ---------- Bloc Pokémon, style Pokédex ---------- */
+  #mon-panel{ grid-area:mon; position:sticky; top:22px; border-radius:24px; padding:6px; background:linear-gradient(155deg,#ee4030,#c22412 55%,#9c1c0d); box-shadow:0 10px 28px rgba(20,10,8,.35), inset 0 1px 0 rgba(255,255,255,.25); }
+  .pokedex-face{ display:flex; align-items:center; gap:10px; padding:10px 14px 9px; }
+  .pokedex-lens{ position:relative; width:30px; height:30px; border-radius:50%; flex:none; background:radial-gradient(circle at 32% 28%, #eaf7ff 0%, #6fb8ef 42%, #1c5fa8 78%, #0e3d73 100%); border:3px solid #f3fbff; box-shadow:0 0 0 3px #1c5fa8, 0 2px 5px rgba(0,0,0,.45); }
+  .pokedex-lens-shine{ position:absolute; top:5px; left:6px; width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.9); }
+  .pokedex-lights{ display:flex; gap:5px; }
+  .pokedex-lights i{ width:8px; height:8px; border-radius:50%; display:block; box-shadow:inset 0 0 0 1px rgba(0,0,0,.25); }
+  .pokedex-lights i:nth-child(1){ background:#ffd23f; }
+  .pokedex-lights i:nth-child(2){ background:#3ddc73; }
+  .pokedex-lights i:nth-child(3){ background:#ff5a5a; }
+  .pokedex-title{ margin-left:auto; font-family:"Baloo 2",sans-serif; color:#fff; font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; opacity:.92; }
+  .pokedex-screen{ background:var(--surface); border-radius:19px; padding:16px; max-height:calc(100vh - 130px); overflow-y:auto; }
+  @media (max-width:860px){ .pokedex-screen{ max-height:none; } }
+  .pokedex-screen h2{ font-size:15px; margin:0 0 3px; }
+
   .roster-hint{ font-size:12px; color:var(--ink-muted); margin:0 0 12px; }
-  .mon-list{ display:flex; flex-direction:column; gap:8px; max-height:420px; overflow-y:auto; padding-right:2px; }
+  .mon-list{ display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding-right:2px; }
   .mon-card{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); cursor:pointer; text-align:left; width:100%; }
   .mon-card:hover{ border-color:var(--accent); }
   .mon-card.active{ border-color:var(--accent); background:var(--accent-soft); }
@@ -273,6 +288,7 @@
     <input id="dresseur-nom" placeholder="Ton nom" autocomplete="off">
   </div>
   <div class="save-pill" id="save-pill">chargement…</div>
+  <button type="button" class="btn-icon" id="delete-cookies" title="Supprimer la sauvegarde (cookies)" aria-label="Supprimer la sauvegarde (cookies)">🗑️</button>
 </header>
 
 <nav class="tabbar" id="tabbar">
@@ -286,11 +302,20 @@
 <div class="layout" id="layout-fiche">
   <section class="panel" id="sheet"></section>
 
-  <aside class="panel" id="roster">
-    <h2>Mon équipe</h2>
-    <p class="roster-hint">Jusqu'à 6 Pokémon. Sélectionne-en un pour voir sa fiche.</p>
-    <div class="mon-list" id="mon-list"></div>
-    <button class="btn-accent" id="add-mon">+ Nouveau Pokémon</button>
+  <aside id="mon-panel">
+    <div class="pokedex-face">
+      <span class="pokedex-lens"><span class="pokedex-lens-shine"></span></span>
+      <span class="pokedex-lights"><i></i><i></i><i></i></span>
+      <span class="pokedex-title">Pokédex</span>
+    </div>
+    <div class="pokedex-screen">
+      <h2>Mon équipe</h2>
+      <p class="roster-hint">Jusqu'à 6 Pokémon. Sélectionne-en un pour voir sa fiche.</p>
+      <div class="mon-list" id="mon-list"></div>
+      <button class="btn-accent" id="add-mon" style="width:100%;margin-top:10px;">+ Nouveau Pokémon</button>
+      <hr class="divider" style="margin:18px 0;">
+      <div id="mon-card"></div>
+    </div>
   </aside>
 </div>
 
@@ -522,9 +547,51 @@
   var moveRollAttrChoice = {};
   var dbNs = null;
   var LS_KEY = "pokeymanzFiche_v1";
+  var COOKIE_CHUNK_SIZE = 3000;
+  var COOKIE_DAYS = 365;
 
-  function lsLoad(){ try{ var raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
-  function lsSave(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+  /* ---------- Sauvegarde par cookies (chunkée pour dépasser la limite de ~4Ko par cookie) ---------- */
+  function setCookie(name, value, days){
+    var expires = "";
+    if (days){ var d = new Date(); d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000); expires = "; expires=" + d.toUTCString(); }
+    document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/; SameSite=Lax";
+  }
+  function getCookie(name){
+    var m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function deleteCookie(name){
+    document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
+  }
+  function lsLoad(){
+    try{
+      var n = parseInt(getCookie(LS_KEY + "_n") || "0", 10);
+      if (!n) return null;
+      var parts = [];
+      for (var i = 0; i < n; i++){
+        var part = getCookie(LS_KEY + "_" + i);
+        if (part == null) return null;
+        parts.push(part);
+      }
+      return JSON.parse(parts.join(""));
+    }catch(e){ return null; }
+  }
+  function lsSave(){
+    try{
+      var json = JSON.stringify(state);
+      var chunks = [];
+      for (var i = 0; i < json.length; i += COOKIE_CHUNK_SIZE) chunks.push(json.slice(i, i + COOKIE_CHUNK_SIZE));
+      var oldN = parseInt(getCookie(LS_KEY + "_n") || "0", 10);
+      chunks.forEach(function(c, i){ setCookie(LS_KEY + "_" + i, c, COOKIE_DAYS); });
+      for (var j = chunks.length; j < oldN; j++) deleteCookie(LS_KEY + "_" + j);
+      setCookie(LS_KEY + "_n", String(chunks.length), COOKIE_DAYS);
+    }catch(e){}
+  }
+  function deleteAllSaveCookies(){
+    var n = parseInt(getCookie(LS_KEY + "_n") || "0", 10);
+    for (var i = 0; i < n; i++) deleteCookie(LS_KEY + "_" + i);
+    deleteCookie(LS_KEY + "_n");
+  }
 
   function setSavePill(text, ok){
     var pill = document.getElementById("save-pill");
@@ -580,7 +647,7 @@
             isSample:false
           };
         }
-      }catch(e){ /* fall through to localStorage */ }
+      }catch(e){ /* fall through to cookies */ }
     }
     if (!loaded){
       var ls = lsLoad();
@@ -840,9 +907,10 @@
       html += '<div class="sample-banner">Exemple pré-rempli — modifie-le ou pars de zéro, tout se sauvegarde automatiquement.<button class="btn-ghost" id="dismiss-sample">Compris</button></div>';
     }
     html += '<div id="trainer-card">' + renderTrainerCard() + "</div>";
-    html += '<hr class="divider">';
-    html += '<div id="mon-card">' + renderMonCard() + "</div>";
     host.innerHTML = html;
+
+    document.getElementById("mon-card").innerHTML = renderMonCard();
+
     wireSheetEvents();
   }
 
@@ -1113,6 +1181,14 @@
   document.getElementById("dresseur-nom").addEventListener("input", function(e){
     state.dresseur.joueur = e.target.value;
     scheduleSave();
+  });
+  document.getElementById("delete-cookies").addEventListener("click", function(){
+    if (!confirm("Supprimer la sauvegarde (cookies) de cet appareil ? Cette action est irréversible et fera repartir la fiche depuis l'exemple pré-rempli.")) return;
+    deleteAllSaveCookies();
+    state = { dresseur: sampleDresseur(), team: [sampleMon()], isSample: true };
+    selectedId = state.team[0].id;
+    setSavePill("cookies supprimés", true);
+    renderAll();
   });
 
   /* ---------- Pokédex picker ---------- */
